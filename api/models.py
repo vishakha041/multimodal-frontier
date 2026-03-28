@@ -5,6 +5,28 @@ from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
+# Debug info — returned alongside every response so the UI can inspect
+# exactly what came out of ApertureDB and what was sent to Gemini.
+# ---------------------------------------------------------------------------
+
+class SearchResultDebug(BaseModel):
+    """One raw ApertureDB search result, before bucketing."""
+    source: Optional[str] = None      # e.g. "yelp", "airnow", "reddit"
+    category: Optional[str] = None    # e.g. "coffee", "air_quality"
+    title: Optional[str] = None
+    score: Optional[float] = None     # CLIP similarity score (0–1)
+    preview: str = ""                 # first 150 chars of stored text
+
+
+class DebugInfo(BaseModel):
+    """Debug payload included in every API response."""
+    total_results: int = 0
+    results: list[SearchResultDebug] = Field(default_factory=list)
+    gemini_prompt: str = ""           # full prompt sent to Gemini (empty = template mode)
+    gemini_model: str = ""            # e.g. "gemini-2.0-flash"
+
+
+# ---------------------------------------------------------------------------
 # Shared bucket item
 # ---------------------------------------------------------------------------
 
@@ -62,6 +84,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     message: str
     buckets: Buckets
+    debug: Optional[DebugInfo] = None
 
 
 # ---------------------------------------------------------------------------
@@ -72,3 +95,4 @@ class ImageResponse(BaseModel):
     description: str          # 2-3 sentence description of what's in the image
     identified: str           # short label e.g. "Golden Gate Bridge"
     buckets: Buckets
+    debug: Optional[DebugInfo] = None

@@ -94,7 +94,9 @@ def _gemini_client():
     )
 
 
-async def generate_chat_message(user_message: str, buckets: Buckets) -> str:
+async def generate_chat_message(
+    user_message: str, buckets: Buckets
+) -> tuple[str, str]:
     """Generate a contextual assistant reply using Gemini.
 
     The prompt includes:
@@ -103,10 +105,14 @@ async def generate_chat_message(user_message: str, buckets: Buckets) -> str:
     - Walking route duration if available
 
     Falls back to a template message if GEMINI_API_KEY is not set.
+
+    Returns:
+        (message, prompt) — the reply text and the full prompt that was sent
+        to Gemini. prompt is an empty string when running in template mode.
     """
     from config import cfg  # local import — cfg loaded at call time
     if not cfg.has_gemini():
-        return _template_message(buckets)
+        return _template_message(buckets), ""
 
     try:
         client = _gemini_client()
@@ -160,10 +166,10 @@ async def generate_chat_message(user_message: str, buckets: Buckets) -> str:
             max_tokens=200,
             temperature=0.7,
         )
-        return response.choices[0].message.content.strip()
+        return response.choices[0].message.content.strip(), prompt
     except Exception as e:
         logger.warning("Gemini chat generation failed: %s — using template", e)
-        return _template_message(buckets)
+        return _template_message(buckets), prompt
 
 
 # ---------------------------------------------------------------------------

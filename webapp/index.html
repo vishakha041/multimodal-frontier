@@ -52,6 +52,21 @@ h2{font-size:1rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;
 .route-steps li::before{content:counter(step);position:absolute;left:0;top:6px;background:#2a2d3a;color:#e8eaf0;border-radius:50%;width:18px;height:18px;font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center}
 a{color:#7baaf7;text-decoration:none}a:hover{text-decoration:underline}
 .hidden{display:none}
+.debug-toggle{background:none;border:1px solid #2a2d3a;color:#8b92a5;border-radius:6px;padding:6px 16px;cursor:pointer;font-size:.8rem;margin-bottom:10px;width:100%;text-align:left;transition:border-color .15s}
+.debug-toggle:hover{border-color:#4f6ef7;color:#c8d0e8}
+.debug-panel{background:#0a0c14;border:1px solid #2a2d3a;border-radius:10px;padding:16px;overflow:hidden}
+.debug-section{margin-bottom:18px}
+.debug-section:last-child{margin-bottom:0}
+.debug-section h3{color:#8b92a5;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-weight:700}
+.debug-table{width:100%;border-collapse:collapse;font-size:.75rem}
+.debug-table th{color:#8b92a5;font-weight:600;padding:4px 8px;text-align:left;border-bottom:1px solid #1a1d27;white-space:nowrap}
+.debug-table td{padding:4px 8px;border-bottom:1px solid #0f1117;color:#aab0c0;vertical-align:top}
+.debug-table td.preview{color:#666;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{border-radius:4px;padding:1px 6px;font-size:.7rem;font-weight:600;white-space:nowrap}
+.badge-src{background:#1e2a1e;color:#4fca7c}
+.badge-cat{background:#1e1e2a;color:#7baaf7}
+.badge-score{background:#2a2a1e;color:#f7c94f}
+.debug-pre{background:#0f1117;border:1px solid #1a2535;border-radius:6px;padding:14px;white-space:pre-wrap;word-break:break-word;font-family:'SF Mono','Fira Code',monospace;font-size:.73rem;color:#7baaf7;max-height:380px;overflow-y:auto;line-height:1.5}
 </style>
 </head>
 <body>
@@ -94,6 +109,23 @@ a{color:#7baaf7;text-decoration:none}a:hover{text-decoration:underline}
       <div class="route-box">
         <div class="route-meta" id="routeMeta"></div>
         <ol class="route-steps" id="routeSteps"></ol>
+      </div>
+    </div>
+
+    <div class="hidden" id="debugSection">
+      <button class="debug-toggle" id="debugToggleBtn" onclick="toggleDebug()">🔍 Debug ▼</button>
+      <div class="debug-panel hidden" id="debugPanel">
+        <div class="debug-section">
+          <h3 id="debugResultsHeader">ApertureDB Results</h3>
+          <table class="debug-table">
+            <thead><tr><th>Source</th><th>Category</th><th>Score</th><th>Title</th><th>Preview</th></tr></thead>
+            <tbody id="debugResultsBody"></tbody>
+          </table>
+        </div>
+        <div class="debug-section">
+          <h3 id="debugPromptHeader">Gemini Prompt</h3>
+          <pre class="debug-pre" id="debugPrompt"></pre>
+        </div>
       </div>
     </div>
   </div>
@@ -140,6 +172,7 @@ function renderResponse(data){
   renderBucket('parksList','parksCard',b.parks||[]);
   renderConditions(b.conditions||[]);
   renderRoute(b.path||{});
+  renderDebug(data.debug||null);
   document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -192,6 +225,36 @@ function showError(msg){
   document.getElementById('results').classList.remove('hidden');
   document.getElementById('aiMsg').textContent=`Error: ${msg}`;
   ['condCard','coffeeCard','foodCard','drinksCard','parksCard','routeCard'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+}
+
+let _debugOpen=false;
+function toggleDebug(){
+  _debugOpen=!_debugOpen;
+  document.getElementById('debugPanel').classList.toggle('hidden',!_debugOpen);
+  document.getElementById('debugToggleBtn').textContent=_debugOpen?'🔍 Debug ▲':'🔍 Debug ▼';
+}
+
+function renderDebug(debug){
+  const sec=document.getElementById('debugSection');
+  if(!debug){sec.classList.add('hidden');return;}
+  sec.classList.remove('hidden');
+
+  // Results table
+  const count=debug.total_results||0;
+  document.getElementById('debugResultsHeader').textContent=`ApertureDB Results — ${count} returned`;
+  const rows=(debug.results||[]).map(r=>{
+    const src=r.source?`<span class="badge badge-src">${esc(r.source)}</span>`:'<span style="color:#444">—</span>';
+    const cat=r.category?`<span class="badge badge-cat">${esc(r.category)}</span>`:'';
+    const score=r.score!=null?`<span class="badge badge-score">${r.score.toFixed(3)}</span>`:'';
+    return `<tr><td>${src}</td><td>${cat}</td><td>${score}</td><td>${esc(r.title||'—')}</td><td class="preview">${esc(r.preview)}</td></tr>`;
+  }).join('');
+  document.getElementById('debugResultsBody').innerHTML=rows||'<tr><td colspan="5" style="color:#444;padding:8px">No results</td></tr>';
+
+  // Gemini prompt
+  const model=debug.gemini_model?` · ${debug.gemini_model}`:'';
+  document.getElementById('debugPromptHeader').textContent=`Gemini Prompt${model}`;
+  document.getElementById('debugPrompt').textContent=
+    debug.gemini_prompt||'(empty — Gemini not configured, using template response)';
 }
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}

@@ -13,13 +13,33 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.models import Buckets, ChatRequest, ChatResponse, ImageResponse, PathInfo
+from api.models import Buckets, ChatRequest, ChatResponse, DebugInfo, ImageResponse, PathInfo, SearchResultDebug
 from api.search import get_memory, search_all_modalities, search_image_bytes, search_text
 from api.buckets import build_buckets, first_coordinate
 from api.routing import get_walking_path
 from api.llm import generate_chat_message, identify_image
 
 logger = logging.getLogger(__name__)
+
+
+def _build_debug(results: list, prompt: str, model: str) -> DebugInfo:
+    """Convert raw ApertureDB SearchResults into a DebugInfo payload."""
+    rows = []
+    for r in results:
+        meta = r.metadata or {}
+        rows.append(SearchResultDebug(
+            source=meta.get("source"),
+            category=meta.get("category"),
+            title=meta.get("title"),
+            score=round(float(r.score), 4) if getattr(r, "score", None) is not None else None,
+            preview=(r.text or "")[:150],
+        ))
+    return DebugInfo(
+        total_results=len(results),
+        results=rows,
+        gemini_prompt=prompt,
+        gemini_model=model,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -92,9 +112,11 @@ async def chat(req: ChatRequest) -> ChatResponse:
     if coord:
         buckets.path = await get_walking_path(coord[0], coord[1])
 
-    message = await generate_chat_message(req.message, buckets)
+    from config import cfg
+    message, gemini_prompt = await generate_chat_message(req.message, buckets)
+    debug = _build_debug(results, gemini_prompt, cfg.gemini_model)
 
-    return ChatResponse(message=message, buckets=buckets)
+    return ChatResponse(message=message, buckets=buckets, debug=debug)
 
 
 # ---------------------------------------------------------------------------
@@ -139,8 +161,13 @@ async def analyze_image(
     if coord:
         buckets.path = await get_walking_path(coord[0], coord[1])
 
+    from config import cfg
+    _, gemini_prompt = await generate_chat_message(identified, buckets)
+    debug = _build_debug(combined, gemini_prompt, cfg.gemini_model)
+
     return ImageResponse(
         description=description,
         identified=identified,
         buckets=buckets,
+        debug=debug,
     )

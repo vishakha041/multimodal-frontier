@@ -337,13 +337,19 @@ class BaseImageAgent(BaseAgent, ABC):
                 if self.store_image_bytes:
                     image_data = await self._download_image(session, image_url)
                     if image_data:
-                        info.log(text=text, image=image_data, metadata=meta)
+                        # Two separate entries so each gets its own CLIP descriptor:
+                        #   text entry  → nexus_text__ViT-B/16  (searchable by text queries)
+                        #   image entry → nexus_image__ViT-B/16 (searchable by image/cross-modal queries)
+                        info.log(text=text, metadata=meta)
+                        info.log(image=image_data, metadata=meta)
                     else:
-                        # fallback to URL ref if download failed
-                        info.log(text=text, image=image_url, metadata=meta)
+                        # Download failed — store text only (URL already in meta)
+                        info.log(text=text, metadata=meta)
                 else:
-                    # aperture-nexus accepts https:// URLs directly
-                    info.log(text=text, image=image_url, metadata=meta)
+                    # Yelp / ToS-restricted sources: store URL reference only.
+                    # Still two entries so image URL is indexed in the image DescriptorSet.
+                    info.log(text=text, metadata=meta)
+                    info.log(image=image_url, metadata=meta)
 
         mem = self.memory
         if mem is not None:

@@ -43,20 +43,25 @@ class WikimediaAgent(BaseImageAgent):
     IS_LIVE = False
     INTERVAL_SECONDS = 86400  # daily
 
+    # Wikimedia policy requires a descriptive User-Agent for both API calls
+    # AND CDN image downloads from upload.wikimedia.org — generic strings get 403.
+    _WIKIMEDIA_UA = (
+        "SF-City-Intelligence/1.0 "
+        "(educational hackathon; https://github.com/sf-city-intelligence)"
+    )
+
+    @property
+    def _download_headers(self) -> dict:
+        """Override with Wikimedia-compliant User-Agent for CDN image downloads."""
+        return {"User-Agent": self._WIKIMEDIA_UA}
+
     async def fetch(self) -> list[dict]:
         """Discover and return geo-tagged Wikimedia images near SF.
 
         Returns:
             List of records with ``image_url`` keys for BaseImageAgent.
         """
-        # Wikimedia requires a descriptive User-Agent — generic agents get 403
-        headers = {
-            "User-Agent": (
-                "SF-City-Intelligence/1.0 "
-                "(educational hackathon; https://github.com/sf-city-intelligence)"
-            )
-        }
-        async with aiohttp.ClientSession(headers=headers) as session:
+        async with aiohttp.ClientSession(headers=self._download_headers) as session:
             page_titles = await self._geosearch(session)
             if not page_titles:
                 return []

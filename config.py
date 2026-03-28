@@ -61,6 +61,14 @@ class AgentConfig:
     # --- aperture-nexus auth ---
     nexus_api_key: Optional[str]   # shared key used by all agents to authenticate
 
+    # --- OpenAI (optional — enables richer chat responses + image recognition) ---
+    openai_api_key: Optional[str]
+    openai_model: str              # default: gpt-4o
+
+    # --- REST API server ---
+    api_host: str
+    api_port: int
+
     # --- API keys (all optional so missing keys don't crash on import) ---
     yelp_api_key: Optional[str]
     five_one_one_api_key: Optional[str]
@@ -99,6 +107,9 @@ class AgentConfig:
 
     def has_nexus(self) -> bool:
         return bool(self.nexus_api_key)
+
+    def has_openai(self) -> bool:
+        return bool(self.openai_api_key)
 
     def has_mapillary(self) -> bool:
         return bool(self.mapillary_api_key)
@@ -140,6 +151,10 @@ def _load() -> AgentConfig:
         five_one_one_api_key=_opt("FIVE_ONE_ONE_API_KEY"),
         airnow_api_key=_opt("AIRNOW_API_KEY"),
         nexus_api_key=_opt("NEXUS_API_KEY"),
+        openai_api_key=_opt("OPENAI_API_KEY"),
+        openai_model=os.environ.get("OPENAI_MODEL", "gpt-4o"),
+        api_host=os.environ.get("API_HOST", "0.0.0.0"),
+        api_port=_int("API_PORT", 8000),
         mapillary_api_key=_opt("MAPILLARY_API_KEY"),
         reddit_user_agent=os.environ.get(
             "REDDIT_USER_AGENT", "sf-city-intelligence-bot/1.0"

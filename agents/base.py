@@ -286,6 +286,15 @@ class BaseImageAgent(BaseAgent, ABC):
         from config import cfg  # local import to avoid circular deps at module load
         return cfg.store_image_bytes
 
+    @property
+    def _download_headers(self) -> dict:
+        """HTTP headers used when downloading image bytes.
+
+        Subclasses can override to supply a stricter User-Agent required by
+        certain CDNs (e.g. Wikimedia Commons requires a policy-compliant string).
+        """
+        return {"User-Agent": "SF-City-Intelligence/1.0 (educational hackathon)"}
+
     async def run_once(self) -> None:
         """Fetch records and commit each as text + image to aperture-nexus."""
         logger.info("%s: starting image fetch", self.AGENT_ID)
@@ -301,12 +310,14 @@ class BaseImageAgent(BaseAgent, ABC):
         ctx = self._make_context()
         info = Information(context_id=ctx.id)
 
-        headers = {"User-Agent": "SF-City-Intelligence/1.0 (educational hackathon)"}
-        async with aiohttp.ClientSession(headers=headers) as session:
+        async with aiohttp.ClientSession(headers=self._download_headers) as session:
             for record in records:
                 image_url = record.pop("image_url", None)
                 text = _record_text(record)
                 meta = _record_metadata(record)
+
+                if image_url:
+                    meta["image_url"] = image_url[:500]
 
                 if not image_url:
                     info.log(text=text, metadata=meta)

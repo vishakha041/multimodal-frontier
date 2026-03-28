@@ -30,6 +30,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+import asyncio
 import aiohttp
 
 from aperture_nexus.auth import Principal
@@ -171,10 +172,10 @@ class BaseAgent(ABC):
         mem = self.memory
         if mem is not None:
             try:
-                mem.commit(ctx, info)
-                logger.info("%s: committed %d records", self.AGENT_ID, len(records))
+                mem.process_and_commit(ctx, info)
+                logger.info("%s: committed %d records (with embeddings)", self.AGENT_ID, len(records))
             except Exception as e:
-                logger.error("%s: commit failed: %s", self.AGENT_ID, e)
+                logger.error("%s: process_and_commit failed: %s", self.AGENT_ID, e)
         else:
             logger.info(
                 "%s: [no-storage] would have committed %d records",
@@ -253,9 +254,19 @@ class BaseAgent(ABC):
         logger.info("%s: starting fetch", self.AGENT_ID)
         try:
             records = await self.fetch()
-            self.commit_records(records)
+            await self._async_commit_records(records)
         except Exception as e:
             logger.error("%s: fetch failed: %s", self.AGENT_ID, e, exc_info=True)
+
+    async def _async_commit_records(self, records: list[dict]) -> None:
+        """Async wrapper: run the blocking process_and_commit in a thread executor.
+
+        process_and_commit() is CPU-heavy (CLIP embedding) and does blocking
+        network I/O (ApertureDB writes). Running it in a thread keeps the
+        event loop free so Ctrl-C / task cancellation responds instantly.
+        """
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self.commit_records, records)
 
 
 class BaseImageAgent(BaseAgent, ABC):
@@ -337,10 +348,12 @@ class BaseImageAgent(BaseAgent, ABC):
         mem = self.memory
         if mem is not None:
             try:
-                mem.commit(ctx, info)
-                logger.info("%s: committed %d image records", self.AGENT_ID, len(records))
+                # Run in executor: CLIP embedding + DB write are blocking ops
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, mem.process_and_commit, ctx, info)
+                logger.info("%s: committed %d image records (with embeddings)", self.AGENT_ID, len(records))
             except Exception as e:
-                logger.error("%s: commit failed: %s", self.AGENT_ID, e)
+                logger.error("%s: process_and_commit failed: %s", self.AGENT_ID, e)
         else:
             logger.info(
                 "%s: [no-storage] would have committed %d image records",

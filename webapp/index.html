@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌉 SF City Guide</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e8eaf0;min-height:100vh}
+.app{max-width:900px;margin:0 auto;padding:24px 16px}
+header{text-align:center;margin-bottom:28px}
+header h1{font-size:2rem;font-weight:700;letter-spacing:-0.5px}
+header p{color:#8b92a5;margin-top:6px;font-size:.95rem}
+.card{background:#1a1d27;border:1px solid #2a2d3a;border-radius:12px;padding:20px;margin-bottom:20px}
+.input-card textarea{width:100%;background:#0f1117;border:1px solid #2a2d3a;border-radius:8px;color:#e8eaf0;font-size:1rem;padding:12px;resize:vertical;min-height:80px;margin:10px 0;font-family:inherit}
+.input-card textarea:focus{outline:none;border-color:#4f6ef7}
+.input-card input[type=email]{width:100%;background:#0f1117;border:1px solid #2a2d3a;border-radius:8px;color:#8b92a5;font-size:.85rem;padding:8px 12px;margin-bottom:4px;font-family:inherit}
+.input-card input[type=email]:focus{outline:none;border-color:#4f6ef7}
+.btn-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button.primary{background:#4f6ef7;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:1rem;font-weight:600;cursor:pointer;transition:background .15s}
+button.primary:hover{background:#3d5ce0}
+button.primary:disabled{background:#2a2d3a;color:#555;cursor:not-allowed}
+label.img-btn{background:#1a2535;border:1px solid #2a3a55;color:#7baaf7;border-radius:8px;padding:10px 16px;font-size:.9rem;cursor:pointer;transition:background .15s}
+label.img-btn:hover{background:#1e2d45}
+.spinner{display:none;text-align:center;color:#8b92a5;padding:20px;font-size:.95rem}
+.spinner.active{display:block}
+.ai-msg{background:#1a2535;border-left:3px solid #4f6ef7;border-radius:0 10px 10px 0;padding:16px 20px;font-size:1.05rem;line-height:1.6;margin-bottom:20px;color:#c8d0e8}
+h2{font-size:1rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#8b92a5;margin-bottom:14px}
+.conditions-list{display:flex;flex-direction:column;gap:8px}
+.cond-item{background:#0f1117;border-radius:8px;padding:12px 14px;font-size:.88rem;line-height:1.5;border-left:3px solid #f7a24f}
+.cond-item.aqi{border-color:#4fca7c}
+.cond-item.reddit{border-color:#ff6b35}
+.cond-tag{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#8b92a5;margin-bottom:3px}
+.cond-name{font-weight:600;color:#e8eaf0;margin-bottom:2px}
+.cond-desc{color:#8b92a5}
+.buckets{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+@media(max-width:600px){.buckets{grid-template-columns:1fr}}
+.bucket-section{}
+.bucket-cards{display:flex;flex-direction:column;gap:8px}
+.place-card{background:#0f1117;border-radius:8px;padding:12px 14px;border:1px solid #22253a;display:flex;gap:12px;align-items:flex-start}
+.place-img{width:56px;height:56px;border-radius:6px;object-fit:cover;flex-shrink:0;background:#22253a}
+.place-info{flex:1;min-width:0}
+.place-name{font-weight:600;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.place-meta{font-size:.78rem;color:#8b92a5;margin-top:2px}
+.place-desc{font-size:.82rem;color:#aab0c0;margin-top:4px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stars{color:#f7c94f;font-size:.8rem}
+.route-box{background:#0f1117;border-radius:10px;padding:16px}
+.route-meta{font-size:.9rem;color:#7baaf7;font-weight:600;margin-bottom:12px}
+.route-steps{list-style:none;counter-reset:step}
+.route-steps li{counter-increment:step;padding:6px 0 6px 28px;position:relative;font-size:.88rem;color:#8b92a5;border-bottom:1px solid #1a1d27}
+.route-steps li:last-child{border-bottom:none}
+.route-steps li::before{content:counter(step);position:absolute;left:0;top:6px;background:#2a2d3a;color:#e8eaf0;border-radius:50%;width:18px;height:18px;font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+a{color:#7baaf7;text-decoration:none}a:hover{text-decoration:underline}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🌉 SF City Guide</h1>
+    <p>Bike routes, air quality, road conditions &amp; local spots — powered by live SF data</p>
+  </header>
+
+  <div class="card input-card">
+    <input type="email" id="email" value="test@example.com" placeholder="Your email">
+    <textarea id="message" placeholder="e.g. I want to ride my bike around Embarcadero and get coffee afterwards"></textarea>
+    <div class="btn-row">
+      <button class="primary" id="askBtn" onclick="sendChat()">Ask SF →</button>
+      <label class="img-btn">📷 Identify Image
+        <input type="file" id="imgFile" accept="image/*" style="display:none" onchange="analyzeImage()">
+      </label>
+    </div>
+  </div>
+
+  <div class="spinner" id="spinner">Searching SF data…</div>
+
+  <div id="results" class="hidden">
+    <div class="ai-msg" id="aiMsg"></div>
+
+    <div class="card hidden" id="condCard">
+      <h2>⚡ Live Conditions</h2>
+      <div class="conditions-list" id="condList"></div>
+    </div>
+
+    <div class="buckets" id="buckets">
+      <div class="card bucket-section hidden" id="coffeeCard"><h2>☕ Coffee</h2><div class="bucket-cards" id="coffeeList"></div></div>
+      <div class="card bucket-section hidden" id="foodCard"><h2>🍽 Food</h2><div class="bucket-cards" id="foodList"></div></div>
+      <div class="card bucket-section hidden" id="drinksCard"><h2>🍺 Drinks</h2><div class="bucket-cards" id="drinksList"></div></div>
+      <div class="card bucket-section hidden" id="parksCard"><h2>🌳 Parks &amp; Outdoors</h2><div class="bucket-cards" id="parksList"></div></div>
+    </div>
+
+    <div class="card hidden" id="routeCard">
+      <h2>🗺 Suggested Route</h2>
+      <div class="route-box">
+        <div class="route-meta" id="routeMeta"></div>
+        <ol class="route-steps" id="routeSteps"></ol>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const API='http://localhost:8000';
+
+async function sendChat(){
+  const email=document.getElementById('email').value.trim();
+  const msg=document.getElementById('message').value.trim();
+  if(!msg)return;
+  setLoading(true);
+  try{
+    const r=await fetch(`${API}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,email:email||'anonymous@test.com'})});
+    if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);
+    renderResponse(await r.json());
+  }catch(e){showError(e.message)}
+  setLoading(false);
+}
+
+async function analyzeImage(){
+  const file=document.getElementById('imgFile').files[0];
+  if(!file)return;
+  const email=document.getElementById('email').value.trim()||'anonymous@test.com';
+  setLoading(true);
+  const fd=new FormData();fd.append('image',file);fd.append('email',email);
+  try{
+    const r=await fetch(`${API}/image`,{method:'POST',body:fd});
+    if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);
+    const data=await r.json();
+    document.getElementById('message').value=`${data.identified}: ${data.description}`;
+    renderResponse(data);
+  }catch(e){showError(e.message)}
+  setLoading(false);
+}
+
+function renderResponse(data){
+  document.getElementById('results').classList.remove('hidden');
+  document.getElementById('aiMsg').textContent=data.message||data.description||'';
+  const b=data.buckets||{};
+  renderBucket('coffeeList','coffeeCard',b.coffee||[]);
+  renderBucket('foodList','foodCard',b.food||[]);
+  renderBucket('drinksList','drinksCard',b.drinks||[]);
+  renderBucket('parksList','parksCard',b.parks||[]);
+  renderConditions(b.conditions||[]);
+  renderRoute(b.path||{});
+  document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderBucket(listId,cardId,items){
+  const card=document.getElementById(cardId);
+  const list=document.getElementById(listId);
+  if(!items.length){card.classList.add('hidden');return;}
+  card.classList.remove('hidden');
+  list.innerHTML=items.map(placeCard).join('');
+}
+
+function placeCard(item){
+  const img=item.image_url?`<img class="place-img" src="${esc(item.image_url)}" onerror="this.style.display='none'">`:'';
+  const rating=item.rating?`<span class="stars">${'★'.repeat(Math.round(item.rating))}${'☆'.repeat(5-Math.round(item.rating))}</span> `:'';
+  const dist=item.distance?`· ${esc(item.distance)}`:'';
+  const src=item.source?`· ${esc(item.source)}`:'';
+  const name=item.url?`<a href="${esc(item.url)}" target="_blank">${esc(item.name)}</a>`:esc(item.name);
+  return `<div class="place-card">${img}<div class="place-info"><div class="place-name">${name}</div><div class="place-meta">${rating}${dist}${src}</div><div class="place-desc">${esc(item.description)}</div></div></div>`;
+}
+
+function renderConditions(items){
+  const card=document.getElementById('condCard');
+  const list=document.getElementById('condList');
+  if(!items.length){card.classList.add('hidden');return;}
+  card.classList.remove('hidden');
+  list.innerHTML=items.map(c=>{
+    const cat=(c.category||'').toLowerCase();
+    const src=(c.source||'').toLowerCase();
+    const cls=cat==='air_quality'?'aqi':src==='reddit'?'reddit':'';
+    const tag=cat==='air_quality'?'Air Quality':src==='reddit'?'Reddit':cat==='city_service'?'SF 311':cat.includes('transit')?'511 SF Bay':'Conditions';
+    return `<div class="cond-item ${cls}"><div class="cond-tag">${esc(tag)}</div><div class="cond-name">${esc(c.name)}</div><div class="cond-desc">${esc(c.description)}</div></div>`;
+  }).join('');
+}
+
+function renderRoute(path){
+  const card=document.getElementById('routeCard');
+  if(!path.duration&&!(path.steps||[]).length){card.classList.add('hidden');return;}
+  card.classList.remove('hidden');
+  document.getElementById('routeMeta').textContent=`${path.mode||'walking'} · ${path.duration||'?'} · ${path.distance||'?'}`;
+  document.getElementById('routeSteps').innerHTML=(path.steps||[]).map(s=>`<li>${esc(s)}</li>`).join('');
+}
+
+function setLoading(on){
+  document.getElementById('spinner').className=on?'spinner active':'spinner';
+  document.getElementById('askBtn').disabled=on;
+  if(on)document.getElementById('results').classList.add('hidden');
+}
+
+function showError(msg){
+  document.getElementById('results').classList.remove('hidden');
+  document.getElementById('aiMsg').textContent=`Error: ${msg}`;
+  ['condCard','coffeeCard','foodCard','drinksCard','parksCard','routeCard'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+
+document.getElementById('message').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.metaKey)sendChat();});
+</script>
+</body>
+</html>

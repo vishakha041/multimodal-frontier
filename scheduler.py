@@ -87,8 +87,17 @@ class Scheduler:
         for task in tasks:
             task.cancel()
 
-        await asyncio.gather(*tasks, return_exceptions=True)
-        logger.info("Scheduler: all agent tasks stopped cleanly")
+        # Give tasks 5 seconds to finish their current work gracefully.
+        # Any that are blocked in a synchronous call (e.g. CLIP embedding)
+        # will be abandoned after the timeout — the process exits cleanly.
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=5.0,
+            )
+            logger.info("Scheduler: all agent tasks stopped cleanly")
+        except asyncio.TimeoutError:
+            logger.warning("Scheduler: some tasks did not stop within 5s — forcing exit")
 
     def stop(self) -> None:
         """Signal the scheduler to stop all loops after current runs complete."""

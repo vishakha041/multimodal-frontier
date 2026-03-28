@@ -61,9 +61,9 @@ class AgentConfig:
     # --- aperture-nexus auth ---
     nexus_api_key: Optional[str]   # shared key used by all agents to authenticate
 
-    # --- OpenAI (optional — enables richer chat responses + image recognition) ---
-    openai_api_key: Optional[str]
-    openai_model: str              # default: gpt-4o
+    # --- Gemini (optional — enables richer chat responses + image recognition) ---
+    gemini_api_key: Optional[str]
+    gemini_model: str              # default: gemini-2.0-flash
 
     # --- REST API server ---
     api_host: str
@@ -108,8 +108,8 @@ class AgentConfig:
     def has_nexus(self) -> bool:
         return bool(self.nexus_api_key)
 
-    def has_openai(self) -> bool:
-        return bool(self.openai_api_key)
+    def has_gemini(self) -> bool:
+        return bool(self.gemini_api_key)
 
     def has_mapillary(self) -> bool:
         return bool(self.mapillary_api_key)
@@ -151,8 +151,8 @@ def _load() -> AgentConfig:
         five_one_one_api_key=_opt("FIVE_ONE_ONE_API_KEY"),
         airnow_api_key=_opt("AIRNOW_API_KEY"),
         nexus_api_key=_opt("NEXUS_API_KEY"),
-        openai_api_key=_opt("OPENAI_API_KEY"),
-        openai_model=os.environ.get("OPENAI_MODEL", "gpt-4o"),
+        gemini_api_key=_opt("GEMINI_API_KEY"),
+        gemini_model=os.environ.get("GEMINI_MODEL", "gemini-2.0-flash"),
         api_host=os.environ.get("API_HOST", "0.0.0.0"),
         api_port=_int("API_PORT", 8000),
         mapillary_api_key=_opt("MAPILLARY_API_KEY"),

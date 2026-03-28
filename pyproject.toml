@@ -13,7 +13,7 @@ dependencies = [
     "praw>=7.7",              # Reddit API wrapper
     "python-dotenv>=1.0",     # .env file loading
     "requests>=2.31",         # sync HTTP (image download in aperture-nexus)
-    "aperture-nexus @ file://../aperture-nexus",
+#    "aperture-nexus[clip] @ file://../aperture-nexus",
     # REST API
     "fastapi>=0.111",
     "uvicorn[standard]>=0.29",

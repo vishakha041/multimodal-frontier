@@ -28,12 +28,23 @@ logger = logging.getLogger(__name__)
 
 _ENDPOINT = "https://graph.mapillary.com/images"
 
-# SF bounding box: west, south, east, north
-_SF_BBOX = "-122.5270,37.7034,-122.3482,37.8324"
+# The Mapillary Graph API v4 rejects bounding boxes larger than 0.010 sq degrees.
+# The full SF area (~0.023 sq degrees) exceeds that limit → 500 error.
+# Solution: tile SF into a 2×2 grid of smaller boxes, each ~0.006 sq degrees.
+#
+# Full SF extent: west=-122.5270, south=37.7034, east=-122.3482, north=37.8324
+# Mid-point:      lon=-122.4376, lat=37.7679
+_SF_TILES = [
+    "-122.5270,37.7679,-122.4376,37.8324",  # NW (Golden Gate Park / Richmond)
+    "-122.4376,37.7679,-122.3482,37.8324",  # NE (Fisherman's Wharf / North Beach)
+    "-122.5270,37.7034,-122.4376,37.7679",  # SW (Sunset / Ocean Beach)
+    "-122.4376,37.7034,-122.3482,37.7679",  # SE (Mission / SoMa / Embarcadero)
+]
 
 # Fields to request — keep lean to stay within API limits.
 # Note: computed_compass_angle is NOT a valid Graph API v4 field → 500 error.
 # Use compass_angle (the raw sensor value) instead.
+# Note: "creator" is an object/edge field that cannot be in a flat field list.
 _FIELDS = ",".join([
     "id",
     "geometry",       # GeoJSON Point — gives us precise lat/lon
@@ -42,9 +53,6 @@ _FIELDS = ",".join([
     "captured_at",    # timestamp in milliseconds
     "is_pano",        # True if this is a 360° panorama
     "compass_angle",  # direction the camera was facing (raw sensor value)
-    # Note: "creator" is an object/edge field and cannot be requested in a
-    # flat field list — it requires nested syntax (creator{id,username}) which
-    # the REST endpoint does not support, causing a 500 error.
 ])
 
 _LIMIT = 50
@@ -70,6 +78,9 @@ class MapillaryAgent(BaseImageAgent):
     async def fetch(self) -> list[dict]:
         """Search Mapillary for SF street-level photos and return image records.
 
+        Tiles the SF bounding box into a 2×2 grid of smaller boxes because
+        the Mapillary Graph API v4 rejects bboxes larger than 0.010 sq degrees.
+
         Returns:
             List of records with ``image_url`` key for BaseImageAgent.
         """
@@ -80,30 +91,41 @@ class MapillaryAgent(BaseImageAgent):
             )
             return []
 
-        params = {
-            "access_token": cfg.mapillary_api_key,
-            "bbox": _SF_BBOX,
-            "fields": _FIELDS,
-            "limit": _LIMIT,
-        }
+        all_records: list[dict] = []
+        seen_ids: set[str] = set()
 
         async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(
-                    _ENDPOINT,
-                    params=params,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    resp.raise_for_status()
-                    data = await resp.json(content_type=None)
-            except Exception as e:
-                logger.error("Mapillary: request failed: %s", e)
-                return []
+            for tile_bbox in _SF_TILES:
+                params = {
+                    "access_token": cfg.mapillary_api_key,
+                    "bbox": tile_bbox,
+                    "fields": _FIELDS,
+                    "limit": _LIMIT,
+                }
+                try:
+                    async with session.get(
+                        _ENDPOINT,
+                        params=params,
+                        timeout=aiohttp.ClientTimeout(total=30),
+                    ) as resp:
+                        resp.raise_for_status()
+                        data = await resp.json(content_type=None)
+                except Exception as e:
+                    logger.error("Mapillary: request failed for tile %s: %s", tile_bbox, e)
+                    continue
 
-        images = data.get("data", [])
-        records = [r for r in (self._to_record(img) for img in images) if r]
-        logger.info("Mapillary: fetched %d street-level photos", len(records))
-        return records
+                for img in data.get("data", []):
+                    img_id = img.get("id", "")
+                    if img_id in seen_ids:
+                        continue
+                    seen_ids.add(img_id)
+                    record = self._to_record(img)
+                    if record:
+                        all_records.append(record)
+
+        logger.info("Mapillary: fetched %d street-level photos across %d tiles",
+                    len(all_records), len(_SF_TILES))
+        return all_records
 
     def _to_record(self, img: dict) -> Optional[dict]:
         """Convert a raw Mapillary image dict to a normalized image record."""

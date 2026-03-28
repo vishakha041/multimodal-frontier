@@ -1,0 +1,13 @@
+{
+    "models": {
+        "text_embedding": "ViT-B/16",
+        "image_embedding": "ViT-B/16",
+        "video_embedding": "ViT-B/16"
+    },
+    "processing": {
+        "text_chunk_size": 250,
+        "text_chunk_overlap": 0,
+        "num_threads": 4,
+        "batch_size": 50
+    }
+}
